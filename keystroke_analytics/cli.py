@@ -9,7 +9,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from keystroke_analytics.config import AppConfig, StorageConfig
+from keystroke_analytics.config import AppConfig
 from keystroke_analytics.engine import AnalyticsEngine
 
 
@@ -67,6 +67,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Decryption passphrase (prompted if omitted).",
     )
 
+    # -- gui ----------------------------------------------------------
+    gui_p = sub.add_parser("gui", help="Launch the graphical interface")
+    gui_p.add_argument(
+        "-c", "--config",
+        type=Path,
+        default=None,
+        help="Path to a YAML or JSON config file (optional).",
+    )
+    gui_p.add_argument(
+        "--log-dir",
+        type=Path,
+        default=None,
+        help="Override the log output directory (optional).",
+    )
+    gui_p.add_argument(
+        "--encrypt",
+        action="store_true",
+        help="Enable AES encryption for log files (GUI will prompt for passphrase).",
+    )
+    gui_p.add_argument(
+        "--no-analytics",
+        action="store_true",
+        help="Disable the biometrics analyzer.",
+    )
+
     return parser
 
 
@@ -83,6 +108,8 @@ def main(argv: list[str] | None = None) -> None:
         _cmd_run(args)
     elif args.command == "decrypt":
         _cmd_decrypt(args)
+    elif args.command == "gui":
+        _cmd_gui(args)
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
@@ -96,6 +123,11 @@ def _cmd_run(args: argparse.Namespace) -> None:
     if args.encrypt:
         config.storage.encrypt = True
     if args.passphrase:
+        print(
+            "Warning: passing passphrases via CLI args is insecure. "
+            "Prefer prompt or environment variables.",
+            file=sys.stderr,
+        )
         config.storage.passphrase = args.passphrase
     if args.log_dir:
         config.storage.log_dir = args.log_dir
@@ -107,10 +139,32 @@ def _cmd_run(args: argparse.Namespace) -> None:
     # Prompt for passphrase if encryption is on but no passphrase given.
     if config.storage.encrypt and not config.storage.passphrase:
         import getpass
+
         config.storage.passphrase = getpass.getpass("Encryption passphrase: ")
 
     engine = AnalyticsEngine(config)
     engine.start()
+
+
+def _cmd_gui(args: argparse.Namespace) -> None:
+    # Lazy import so CLI users don't need PySide6 installed.
+    try:
+        from keystroke_analytics.gui.app import run_gui
+    except Exception as exc:  # noqa: BLE001
+        print(
+            "GUI dependencies not installed. Run: pip install .[gui]",
+            file=sys.stderr,
+        )
+        print(f"Details: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    config_path = args.config if args.config and args.config.exists() else None
+    run_gui(
+        config_path=config_path,
+        log_dir=args.log_dir,
+        encrypt=args.encrypt,
+        analytics_enabled=not args.no_analytics,
+    )
 
 
 def _cmd_decrypt(args: argparse.Namespace) -> None:
@@ -119,6 +173,7 @@ def _cmd_decrypt(args: argparse.Namespace) -> None:
     passphrase = args.passphrase
     if not passphrase:
         import getpass
+
         passphrase = getpass.getpass("Decryption passphrase: ")
 
     try:

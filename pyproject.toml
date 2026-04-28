@@ -4,36 +4,51 @@ version = "1.0.0"
 description = "Cross-platform keystroke analytics with typing biometrics — dwell time, flight time, WPM, rhythm profiling, and encrypted log storage."
 requires-python = ">=3.12"
 readme = "README.md"
-license = {text = "MIT"}
+license = { text = "MIT" }
 
+# Minimal runtime dependencies only.
 dependencies = [
-    "pynput>=1.7",
-    "requests>=2.31",
+    "pynput>=1.7,<2.0",
+    "requests>=2.31,<3.0",
 ]
 
 [project.optional-dependencies]
+# Crypto stack (pin upper bound to reduce breaking changes and CVE drift).
 crypto = [
-    "cryptography>=42.0",
+    "cryptography>=42.0,<47.0",
 ]
+
+# YAML config support.
 yaml = [
-    "pyyaml>=6.0",
+    "pyyaml>=6.0,<7.0",
 ]
+
+# Platform-specific helpers.
 windows = [
-    "pywin32>=306",
-    "psutil>=5.9",
+    "pywin32>=306,<400",
+    "psutil>=5.9,<8.0",
 ]
 macos = [
-    "pyobjc-framework-Cocoa>=10.0",
+    "pyobjc-framework-Cocoa>=10.0,<13.0",
 ]
+
+# GUI stack (PySide6 tends to introduce breaking changes across major versions).
+gui = [
+    "PySide6>=6.6,<7.0",
+]
+
+# Developer tooling + security scanning.
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.4",
-    "mypy>=1.10",
-    "cryptography>=42.0",
-    "types-requests>=2.31",
+    "pytest>=8.0,<10.0",
+    "ruff>=0.4,<1.0",
+    "mypy>=1.10,<2.0",
+    "types-requests>=2.31,<3.0",
+    "pip-audit>=2.7,<3.0",
 ]
+
+# Full install — includes all safe extras.
 all = [
-    "keystroke-analytics[crypto,yaml,dev]",
+    "keystroke-analytics[crypto,yaml,windows,macos,gui,dev]",
 ]
 
 [project.scripts]
