@@ -1,6 +1,6 @@
 # Keystroke Analytics
 
-> Cross-platform input analytics engine with typing biometrics, encrypted storage, and modular architecture.
+> Cross-platform input analytics engine with typing biometrics, encrypted storage, modular architecture, and enhanced GUI.
 
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -35,17 +35,20 @@ someone types, not just what they type.
 
 - **Typing Biometrics** — Real-time WPM, dwell/flight time, rhythm scoring,
   key frequency heatmaps, and session analytics reports.
+- **Enhanced GUI** — Tabbed interface with capture control, real-time statistics,
+  detailed reports, and log viewer with search functionality.
 - **AES Encrypted Storage** — Logs encrypted with Fernet (AES-128-CBC + HMAC),
   key derived via PBKDF2-HMAC-SHA256. Includes a built-in decrypt command.
 - **Cross-Platform** — Windows (win32gui + psutil), macOS (AppKit), and
   Linux (xdotool) window tracking with graceful fallbacks.
 - **Modular Architecture** — Clean separation into `capture/`, `storage/`,
-  `analytics/`, and `delivery/` subsystems.
+  `analytics/`, `delivery/`, and `gui/` subsystems.
 - **Config File Support** — Load settings from YAML or JSON, with CLI overrides.
 - **Webhook Delivery** — Batched HTTPS event delivery with configurable
   batch size and timeouts.
 - **Log Rotation** — Automatic size-based rotation with timestamped filenames.
-- **CLI Interface** — Full `argparse` CLI with `run` and `decrypt` subcommands.
+- **Dual Interface** — Full `argparse` CLI with `run` and `decrypt` subcommands,
+  plus a modern PySide6 GUI application.
 
 ---
 
@@ -77,6 +80,8 @@ Each subsystem is independently testable and replaceable.
 
 ## Quick Start
 
+### CLI Usage
+
 ```bash
 # Clone and enter the project
 git clone <your-repo-url>
@@ -85,17 +90,27 @@ cd keylogger
 # Setup (creates venv + installs everything)
 uv sync --all-extras
 
-# Run with default settings
+# Run with default settings (CLI)
 uv run python -m keystroke_analytics run
 
-# Run with encryption enabled
+# Run with encryption enabled (CLI)
 uv run python -m keystroke_analytics run --encrypt
 
-# Decrypt a log file
+# Decrypt a log file (CLI)
 uv run python -m keystroke_analytics decrypt path/to/session.enc
 ```
 
-Press **Ctrl+C** to stop — you'll see a full typing analytics report:
+### GUI Usage
+
+```bash
+# Launch the graphical interface
+uv run python -m keystroke_analytics gui
+
+# Or double-click launch_gui.bat on Windows
+launch_gui.bat
+```
+
+Press **Ctrl+C** (CLI) or close the window (GUI) to stop — you'll see a full typing analytics report:
 
 ```
 ═══════════════════════════════════════════
@@ -119,6 +134,221 @@ Press **Ctrl+C** to stop — you'll see a full typing analytics report:
 
 ---
 
+## GUI Usage Guide - Step by Step
+
+### Step 1: Launch the GUI
+
+Choose one of these methods:
+
+**Method 1: Command Line**
+```bash
+uv run python -m keystroke_analytics gui
+```
+
+**Method 2: Batch File (Windows)**
+```bash
+double-click launch_gui.bat
+```
+
+**Method 3: Direct Python**
+```bash
+python -m keystroke_analytics gui
+```
+
+After launch, you'll see the main window with 4 tabs at the top.
+
+---
+
+### Step 2: Choose Log Directory (Optional)
+
+1. Click **"📁 Choose Log Directory"** button at the top
+2. Select a folder where you want logs saved (default: `~/.keystroke_analytics`)
+3. The directory path updates in the display
+
+**Skip this step to use the default location.**
+
+---
+
+### Step 3: Start Capturing Keystrokes
+
+1. Click **"▶ Start Capture"** button
+2. A consent dialog appears: **Read and check "I understand and have authorization"**
+3. Click **"OK"**
+4. If encryption enabled, enter a passphrase (then confirm)
+5. Capture begins! You'll see: **Status: Recording** (in green)
+
+---
+
+### Step 4: Monitor in Real-Time
+
+Click the **"📈 Statistics"** tab to see live metrics updating:
+
+- **Elapsed Time** - How long session has been running
+- **Keystrokes Captured** - Total number of keys pressed
+- **Current WPM** - Words per minute (typing speed)
+- **Avg Dwell Time** - How long keys are held (in ms)
+- **Avg Flight Time** - Gap between consecutive keys (in ms)
+- **Rhythm Score** - Typing pattern consistency (0.0 = erratic, 1.0 = perfect)
+- **Top Key** - Most frequently pressed key
+- **Session Status** - Shows "Recording"
+
+As you type, all these metrics update in real-time!
+
+---
+
+### Step 5: View Live Analytics
+
+Click the **"📋 Report"** tab to see a detailed analytics report:
+
+**Summary View:**
+- Session overview (duration, total keystrokes)
+- Typing speed and timing analysis
+- Rhythm consistency score
+- Top 10 keys with visual bar charts
+
+**Detailed Metrics View:**
+- Full calculation methodology
+- Breakdown by key categories
+- Explanation of metrics
+
+**Top Keys View:**
+- Ranked list of most-pressed keys
+- Frequency count for each key
+
+---
+
+### Step 6: Access Captured Logs
+
+Click the **"📄 Logs Viewer"** tab to access raw log files:
+
+**To View Logs:**
+1. Click **"Browse..."** to select a log file
+2. Or click **"📁 Open Directory"** to see logs in file manager
+
+**To Search Logs:**
+1. Type keywords in the **"Search"** box
+2. Results filter in real-time
+3. Click **"Clear"** to reset
+
+**To Copy Logs:**
+1. Click **"Copy All"** to copy entire log to clipboard
+2. Paste into text editor or email
+
+**Log Format:**
+```
+[2024-04-29 10:30:45.123] a dwell=95.2ms flight=142.5ms
+[2024-04-29 10:30:45.234] l dwell=88.1ms flight=156.3ms
+[2024-04-29 10:30:45.312] [SPACE] dwell=92.5ms flight=168.2ms
+```
+
+---
+
+### Step 7: Configure Capture Settings
+
+Click **"📈 Statistics"** tab and scroll down to **"Capture Settings"**:
+
+**Available Options:**
+- ☐ **Enable Encryption (AES-128)** - Encrypt log files
+- ☑ **Enable Biometrics Analysis** - Calculate WPM and metrics (default: ON)
+- ☐ **Track Active Window** - Record which app you're typing in
+- ☑ **Log Special Keys** - Log Ctrl, Alt, Shift, etc. (default: ON)
+
+**To Save Settings:**
+1. Check/uncheck desired options
+2. Click **"Save Settings"**
+3. Settings apply to next capture session
+
+**To Reset to Defaults:**
+1. Click **"Reset to Defaults"**
+2. All settings return to initial state
+
+---
+
+### Step 8: Stop Capture
+
+**Option 1: Normal Stop**
+- Click **"⏹ Stop Capture"** button
+- Session ends gracefully
+- Final report displayed
+
+**Option 2: Emergency Stop**
+- Press **Ctrl+Shift+Q** keyboard shortcut
+- Immediately terminates capture
+- Final report displayed
+
+After stopping, the status changes to **Status: Idle** (in red).
+
+---
+
+### Step 9: Export Report
+
+1. In **"📋 Report"** tab, click **"Export Report"**
+2. Choose save location and filename
+3. Report saved as `.txt` file
+4. Open with any text editor
+
+**Report Contains:**
+- Session duration
+- Typing statistics (WPM, dwell, flight times)
+- Rhythm consistency analysis
+- Top 10 keys list
+- Key distribution by category
+
+---
+
+### Step 10: Review and Analyze
+
+**After a session completes:**
+
+1. **Check Summary**: View overall typing metrics in Report tab
+2. **Analyze Patterns**: Look at rhythm score and top keys
+3. **Export Data**: Save report for documentation
+4. **Search Logs**: Find specific keystroke patterns in Logs Viewer
+5. **Adjust Settings**: Enable encryption or window tracking for next session
+
+---
+
+## GUI Features Overview
+
+### 📊 Capture & Control Tab
+- Start/stop keystroke capture with a single click
+- Choose log directory for session data
+- View encryption and analytics status
+- Consent dialog for legal/ethical compliance
+- Emergency stop shortcut: **Ctrl+Shift+Q**
+
+### 📈 Statistics Tab
+- **Real-time metrics**: Elapsed time, keystroke count, WPM, dwell/flight times
+- **Rhythm consistency score**: Measures typing pattern uniformity (0.0–1.0)
+- **Session status**: Shows active capture state
+- **Configurable settings**: Enable/disable encryption, analytics, window tracking
+- **Capture options**: Toggle special key logging
+
+### 📋 Report Tab
+- **Summary tab**: High-level session overview with key statistics
+- **Detailed metrics tab**: Full biometric analysis and calculations
+- **Key frequency tab**: Top 10 most-pressed keys with visual bars
+- **Export functionality**: Save reports as text files for documentation
+
+### 📄 Logs Viewer Tab
+- **Browse logs**: Open any log file (plain text or encrypted .enc)
+- **Quick filters**: Search logs by keyword
+- **Recent files**: Auto-load the most recent session log
+- **Open directory**: Direct file manager access to ~/.keystroke_analytics
+- **Copy & export**: Copy all logs to clipboard or save to file
+
+---
+
+## Quick Reference: Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+Shift+Q | Emergency stop capture |
+| Tab | Switch between panels |
+| Enter (in search) | Filter logs |
+
+---
+
 ## Configuration
 
 ### CLI Flags
@@ -132,6 +362,12 @@ keystroke-analytics run [OPTIONS]
   --no-analytics          Disable biometrics analyzer
   --log-dir PATH          Override log output directory
   --webhook-url URL       Enable webhook delivery
+
+keystroke-analytics gui [OPTIONS]
+
+  -c, --config PATH       YAML or JSON config file
+  --log-dir PATH          Set default log directory
+  --encrypt               Pre-enable encryption (prompted on start)
 ```
 
 ### Config File (YAML)
@@ -178,8 +414,17 @@ keystroke_analytics/
 │   └── rotation.py          # Size-based rotating file writer
 ├── analytics/
 │   └── biometrics.py        # TypingBiometrics — WPM, dwell, flight, rhythm
-└── delivery/
-    └── webhook.py           # Batched HTTPS webhook sender
+├── delivery/
+│   └── webhook.py           # Batched HTTPS webhook sender
+└── gui/
+    ├── app.py               # GUI application entry point (PySide6)
+    ├── main_window.py       # Main window with tabbed interface
+    ├── controller.py        # Engine orchestration for GUI
+    ├── dialogs.py           # Consent and passphrase dialogs
+    ├── state.py             # GUI state management
+    ├── panels_logs.py       # Log viewer panel
+    ├── panels_report.py     # Analytics report panel
+    └── panels_stats.py      # Real-time statistics panel
 
 tests/
 ├── test_models.py           # InputEvent, SessionStats, KeyCategory
@@ -236,6 +481,18 @@ When `--encrypt` is enabled:
 4. The salt is stored as the first line of the `.enc` file.
 
 Decrypt with: `keystroke-analytics decrypt <file> --passphrase <pass>`
+
+### GUI Architecture
+
+The GUI is built with **PySide6** (Qt for Python) and uses a signal-slot
+architecture for thread-safe communication between the UI thread and the
+background capture engine:
+
+- **MainWindow** orchestrates the tabbed interface and panel initialization
+- **EngineController** runs the capture engine in a background thread
+- **Panels** (Logs, Report, Stats) are independent widgets that receive
+  updates via signals
+- **Threading** ensures the UI remains responsive during capture
 
 ---
 

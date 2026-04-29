@@ -31,6 +31,7 @@ class EngineController(QObject):
     started = Signal()
     stopped = Signal()
     error = Signal(str)
+    stats_updated = Signal(dict)
 
     def __init__(self) -> None:
         super().__init__()
@@ -79,10 +80,19 @@ class EngineController(QObject):
         if not self._running or not self._engine:
             return
         try:
+            stats = self._engine.get_stats() if hasattr(self._engine, 'get_stats') else {}
             self._engine.stop()
             self._running = False
+            if stats:
+                self.stats_updated.emit(stats)
             self.stopped.emit()
             logger.info("Capture stopped (GUI)")
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to stop engine")
             self.error.emit(str(exc))
+
+    def get_current_stats(self) -> dict:
+        """Get current statistics from the running engine."""
+        if self._engine and hasattr(self._engine, 'get_stats'):
+            return self._engine.get_stats()
+        return {}

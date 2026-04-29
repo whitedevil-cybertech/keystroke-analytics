@@ -129,6 +129,35 @@ class AnalyticsEngine:
         print(f"[*] Logs saved to: {log_path}")
         print("[*] Session ended.")
 
+    def get_stats(self) -> dict:
+        """Get current session statistics for GUI display."""
+        if not self._biometrics:
+            return {}
+
+        try:
+            report = self._biometrics.report()
+            categories = report.category_distribution or {}
+            return {
+                "duration": report.duration_secs,
+                "total_keystrokes": report.total_keystrokes,
+                "wpm": report.words_per_minute,
+                "avg_dwell_ms": report.avg_dwell_ms,
+                "avg_flight_ms": report.avg_flight_ms,
+                "rhythm_score": report.rhythm_consistency,
+                "alpha_count": categories.get("alpha", 0),
+                "numeric_count": categories.get("numeric", 0),
+                "special_count": categories.get("punctuation", 0),
+                "whitespace_count": categories.get("whitespace", 0),
+                "function_count": categories.get("function", 0),
+                "top_keys": list(report.top_keys) if report.top_keys else [],
+                "top_key": report.top_keys[0][0] if report.top_keys else "N/A",
+                "status": "Recording" if self._running.is_set() else "Idle",
+                "elapsed_time": report.duration_secs,
+            }
+        except Exception as e:
+            logger.exception("Error getting stats: %s", e)
+            return {}
+
     # ------------------------------------------------------------------
     # Event handling
     # ------------------------------------------------------------------
