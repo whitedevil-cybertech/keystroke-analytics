@@ -16,12 +16,19 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
-    QPushButton,
-    QVBoxLayout,
+    QGridLayout,
     QHBoxLayout,
-    QWidget,
+    QVBoxLayout,
+    QScrollArea,
+    QSpacerItem,
+    QSizePolicy,
     QTabWidget,
+    QWidget,
+    QFrame,
 )
+
+from .widgets import CustomButton, StatusBadge, MetricCard, ICONS
+from .theme import Theme
 
 from keystroke_analytics.gui.controller import EngineController, GuiConfigOverrides
 from keystroke_analytics.gui.dialogs import ConsentDialog, PassphraseDialog
@@ -41,8 +48,9 @@ class MainWindow(QMainWindow):
         analytics_enabled: bool,
     ) -> None:
         super().__init__()
-        self.setWindowTitle("Keystroke Analytics - Enhanced GUI")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowTitle("Keystroke Analytics Pro")
+        self.resize(1400, 900)
+        self.setMinimumSize(1000, 700)
 
         self._config_path = config_path
         self._log_dir = log_dir
@@ -58,123 +66,181 @@ class MainWindow(QMainWindow):
         # Create main widget and layout
         main_widget = QWidget()
         main_layout = QVBoxLayout(main_widget)
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Top control panel
-        control_layout = QHBoxLayout()
-        self._status = QLabel("Status: Idle")
-        self._status.setStyleSheet("font-weight: bold; font-size: 12px;")
-        control_layout.addWidget(self._status)
+        # Modern control bar with StatusBadge and CustomButtons
+        control_frame = QFrame()
+        control_frame.setProperty("role", "card")
+        control_layout = QHBoxLayout(control_frame)
+        control_layout.setContentsMargins(16, 12, 16, 12)
+        control_layout.setSpacing(12)
 
-        self._btn_start = QPushButton("▶ Start Capture")
-        self._btn_stop = QPushButton("⏹ Stop Capture")
-        self._btn_stop.setEnabled(False)
-        self._btn_choose_log = QPushButton("📁 Choose Log Directory")
+        # Status badge
+        self._status_badge = StatusBadge()
+        self._status_badge.setStatus("idle")
+        control_layout.addWidget(self._status_badge)
 
-        self._btn_start.clicked.connect(self._start_clicked)
-        self._btn_stop.clicked.connect(self._stop_clicked)
+        # Config info
+        config_label = QLabel("Configuration Active")
+        config_label.setProperty("role", "subtitle")
+        config_label.setStyleSheet("font-size: 11px;")
+        control_layout.addWidget(config_label)
+        control_layout.addSpacing(12)
+
+        # Log directory selector
+        self._btn_choose_log = CustomButton(ICONS['folder'] + " Log Directory", role="secondary")
         self._btn_choose_log.clicked.connect(self._choose_log_dir)
-
+        self._btn_choose_log.setMaximumHeight(32)
         control_layout.addWidget(self._btn_choose_log)
-        control_layout.addWidget(self._btn_start)
-        control_layout.addWidget(self._btn_stop)
+
+        # Primary action buttons
+        btn_group = QHBoxLayout()
+        btn_group.setSpacing(8)
+        
+        self._btn_start = CustomButton(ICONS['start'] + " Start Capture")
+        self._btn_start.clicked.connect(self._start_clicked)
+        self._btn_start.setMaximumHeight(32)
+        btn_group.addWidget(self._btn_start)
+
+        self._btn_stop = CustomButton(ICONS['stop'] + " Stop Capture", role="danger")
+        self._btn_stop.setEnabled(False)
+        self._btn_stop.clicked.connect(self._stop_clicked)
+        self._btn_stop.setMaximumHeight(32)
+        btn_group.addWidget(self._btn_stop)
+
+        control_layout.addLayout(btn_group)
         control_layout.addStretch()
 
-        main_layout.addLayout(control_layout)
+        main_layout.addWidget(control_frame)
 
         # Tabbed interface
         self._tabs = QTabWidget()
 
         # Capture tab
-        self._capture_tab = self._create_capture_tab()
-        self._tabs.addTab(self._capture_tab, "📊 Capture & Control")
+        # Enhanced tabbed interface with modern styling
+        self._tabs = QTabWidget()
+        self._tabs.setStyleSheet("""
+            QTabBar::tab { height: 42px; padding: 12px 24px; font-weight: 500; }
+            QTabWidget::pane { border: 1px solid #2a3443; border-radius: 12px; margin-top: 8px; }
+        """)
 
-        # Statistics tab
+        # Tabs
+        self._capture_tab = self._create_capture_tab()
+        self._tabs.addTab(self._capture_tab, ICONS['stats'] + " Dashboard")
+
         self._stats_panel = StatsPanel()
         self._stats_panel.set_log_directory(log_dir)
-        self._tabs.addTab(self._stats_panel, "📈 Statistics")
+        self._tabs.addTab(self._stats_panel, ICONS['key'] + " Live Stats")
 
-        # Report tab
         self._report_panel = ReportPanel()
-        self._tabs.addTab(self._report_panel, "📋 Report")
+        self._tabs.addTab(self._report_panel, ICONS['report'] + " Analytics")
 
-        # Logs tab
         self._logs_panel = LogsPanel()
         self._logs_panel.set_log_directory(log_dir)
-        self._tabs.addTab(self._logs_panel, "📄 Logs Viewer")
+        self._tabs.addTab(self._logs_panel, ICONS['logs'] + " Logs")
 
-        main_layout.addWidget(self._tabs)
+        main_layout.addWidget(self._tabs, 1)
+        main_layout.setSpacing(0)
 
         self.setCentralWidget(main_widget)
 
-        # Panic stop shortcut: Ctrl+Shift+Q
+        # Enhanced shortcuts with tooltips
         self._panic = QShortcut(QKeySequence("Ctrl+Shift+Q"), self)
+        self._panic.setWhatsThis("Emergency stop capture")
         self._panic.activated.connect(self._stop_clicked)
 
-        # Timer for periodic refresh
+        self._btn_start.setToolTip("Start keystroke analytics capture (requires consent)")
+        self._btn_stop.setToolTip("Stop capture and generate final report")
+        self._btn_choose_log.setToolTip("Select custom log directory")
+
+        # Auto-refresh timer
         self._refresh_timer = QTimer()
         self._refresh_timer.timeout.connect(self._refresh_panels)
+        self._refresh_timer.setInterval(2000)  # 2s for smoother perf
 
     def _create_capture_tab(self) -> QWidget:
         """Create the main capture control tab."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setSpacing(8)
+        layout.setContentsMargins(16, 16, 16, 16)
 
-        title = QLabel("Keystroke Capture Control")
-        title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        # Title
+        title = QLabel("📝 Keystroke Capture Control")
+        title.setProperty("role", "title")
         layout.addWidget(title)
 
-        info_layout = QVBoxLayout()
-        self._log_dir_label = QLabel(f"Log Directory: {self._log_dir or 'default'}")
-        self._enc_label = QLabel(f"Encryption: {'🔒 ENABLED' if self._encrypt else '🔓 Disabled'}")
-        self._analytics_label = QLabel(
-            f"Analytics: {'✓ Enabled' if self._analytics_enabled else '✗ Disabled'}"
-        )
+        # Config Info Card - Compact
+        config_frame = QFrame()
+        config_frame.setProperty("role", "card")
+        config_layout = QVBoxLayout(config_frame)
+        config_layout.setSpacing(6)
+        config_layout.setContentsMargins(12, 10, 12, 10)
 
-        info_layout.addWidget(self._log_dir_label)
-        info_layout.addWidget(self._enc_label)
-        info_layout.addWidget(self._analytics_label)
+        self._log_dir_label = QLabel(f"📁 Log Directory: {self._log_dir or 'default'}")
+        self._enc_label = QLabel(f"🔐 Encryption: {'Enabled' if self._encrypt else 'Disabled'}")
+        self._analytics_label = QLabel(f"📊 Analytics: {'Enabled' if self._analytics_enabled else 'Disabled'}")
 
-        layout.addLayout(info_layout)
+        for label in [self._log_dir_label, self._enc_label, self._analytics_label]:
+            label.setProperty("role", "subtitle")
+            label.setStyleSheet("font-size: 12px; padding: 2px;")
+            config_layout.addWidget(label)
 
-        # Instructions
+        layout.addWidget(config_frame)
+
+        # Instructions Card - Compact
+        instructions_frame = QFrame()
+        instructions_frame.setProperty("role", "card")
+        instructions_layout = QVBoxLayout(instructions_frame)
+        instructions_layout.setSpacing(4)
+        instructions_layout.setContentsMargins(12, 10, 12, 10)
+
+        instructions_title = QLabel("📋 Quick Start")
+        instructions_title.setProperty("role", "subtitle")
+        instructions_title.setStyleSheet("font-size: 12px; font-weight: bold;")
+        instructions_layout.addWidget(instructions_title)
+
         instructions = QLabel(
-            "Instructions:\n"
-            "1. Choose a log directory (optional)\n"
-            "2. Click 'Start Capture' to begin recording keystrokes\n"
-            "3. Your typing metrics will update in real-time in the 'Statistics' tab\n"
-            "4. View detailed reports in the 'Report' tab\n"
-            "5. Access raw logs in the 'Logs Viewer' tab\n"
-            "6. Press Ctrl+Shift+Q to emergency stop\n\n"
-            "⚠️  Disclaimer: This tool captures keystrokes. Only use with explicit authorization."
+            "1. Click 'Start Capture' to begin • 2. View stats in Live Stats tab\n"
+            "3. Stop capture when done • 4. Press Ctrl+Shift+Q to emergency stop"
         )
         instructions.setWordWrap(True)
-        instructions.setStyleSheet(
-            "QLabel { background-color: #fffacd; padding: 10px; border-radius: 5px; }"
+        instructions.setStyleSheet("font-size: 11px; padding: 2px;")
+        instructions_layout.addWidget(instructions)
+
+        layout.addWidget(instructions_frame)
+
+        # Features Card - Compact
+        features_frame = QFrame()
+        features_frame.setProperty("role", "card")
+        features_layout = QVBoxLayout(features_frame)
+        features_layout.setSpacing(4)
+        features_layout.setContentsMargins(12, 10, 12, 10)
+
+        features_title = QLabel("✨ Capabilities")
+        features_title.setProperty("role", "subtitle")
+        features_title.setStyleSheet("font-size: 12px; font-weight: bold;")
+        features_layout.addWidget(features_title)
+
+        features = QLabel(
+            "⚡ Real-time WPM • 🎵 Rhythm Analysis • 📈 Key Patterns • 💾 Encrypted Logs"
         )
-        layout.addWidget(instructions)
+        features.setWordWrap(True)
+        features.setStyleSheet("font-size: 11px; padding: 2px;")
+        features_layout.addWidget(features)
+
+        layout.addWidget(features_frame)
 
         layout.addStretch()
-
-        # Quick stats
-        stats_box = QLabel(
-            "Quick Stats:\n"
-            "• Monitor WPM (Words Per Minute)\n"
-            "• Track typing consistency (Rhythm Score)\n"
-            "• Analyze key frequency patterns\n"
-            "• Export reports for analysis"
-        )
-        stats_box.setStyleSheet(
-            "QLabel { background-color: #e6f3ff; padding: 10px; border-radius: 5px; }"
-        )
-        layout.addWidget(stats_box)
 
         return widget
 
     def _choose_log_dir(self) -> None:
+        """Update log directory and refresh panels."""
         directory = QFileDialog.getExistingDirectory(self, "Select Log Directory")
         if directory:
             self._log_dir = Path(directory)
-            self._log_dir_label.setText(f"Log Directory: {self._log_dir}")
             self._stats_panel.set_log_directory(self._log_dir)
             self._logs_panel.set_log_directory(self._log_dir)
 
@@ -209,16 +275,14 @@ class MainWindow(QMainWindow):
         self._refresh_timer.stop()
 
     def _on_started(self) -> None:
-        self._status.setText("✓ Status: Recording")
-        self._status.setStyleSheet("font-weight: bold; font-size: 12px; color: green;")
-        self.setWindowTitle("Keystroke Analytics - Recording...")
+        self._status_badge.setStatus("recording")
+        self.setWindowTitle("Keystroke Analytics Pro - 🔴 Recording")
         self._btn_start.setEnabled(False)
         self._btn_stop.setEnabled(True)
 
     def _on_stopped(self) -> None:
-        self._status.setText("✗ Status: Idle")
-        self._status.setStyleSheet("font-weight: bold; font-size: 12px; color: red;")
-        self.setWindowTitle("Keystroke Analytics - Idle")
+        self._status_badge.setStatus("idle")
+        self.setWindowTitle("Keystroke Analytics Pro")
         self._btn_start.setEnabled(True)
         self._btn_stop.setEnabled(False)
         self._refresh_timer.stop()

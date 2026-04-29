@@ -12,16 +12,18 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QWidget,
     QLabel,
     QPushButton,
-    QLineEdit,
     QCheckBox,
-    QGroupBox,
+    QFrame,
+    QLineEdit,
     QMessageBox,
-    QSpinBox,
-    QComboBox,
 )
+
+from .widgets import CustomButton, MetricCard, ICONS
+from .theme import Theme
 
 logger = logging.getLogger(__name__)
 
@@ -34,105 +36,94 @@ class StatsPanel(QWidget):
         self._init_ui()
 
     def _init_ui(self) -> None:
-        layout = QVBoxLayout(self)
-
-        # Title
-        title = QLabel("Session Statistics & Settings")
-        title.setStyleSheet("font-weight: bold; font-size: 14px;")
-        layout.addWidget(title)
-
-        # Real-time stats group
-        stats_group = QGroupBox("Real-Time Statistics")
-        stats_layout = QVBoxLayout()
-
-        # Create stat rows
-        self._stats = {}
-        stat_labels = [
-            ("Elapsed Time", "elapsed_time", "0s"),
-            ("Keystrokes Captured", "keystrokes", "0"),
-            ("Current WPM", "wpm", "0.0"),
-            ("Avg Dwell Time", "dwell", "0.0 ms"),
-            ("Avg Flight Time", "flight", "0.0 ms"),
-            ("Rhythm Score", "rhythm", "0.0 / 1.0"),
-            ("Top Key", "top_key", "N/A"),
-            ("Session Status", "status", "Idle"),
-        ]
-
-        for label_text, key, default_value in stat_labels:
-            row_layout = QHBoxLayout()
-            label = QLabel(f"{label_text}:")
-            label.setMinimumWidth(150)
-            value = QLineEdit(default_value)
-            value.setReadOnly(True)
-            value.setStyleSheet(
-                "QLineEdit { background-color: #f0f0f0; border: 1px solid #ddd; }"
-            )
-            row_layout.addWidget(label)
-            row_layout.addWidget(value)
-            stats_layout.addLayout(row_layout)
-            self._stats[key] = value
-
-        stats_group.setLayout(stats_layout)
-        layout.addWidget(stats_group)
-
-        # Settings group
-        settings_group = QGroupBox("Capture Settings")
-        settings_layout = QVBoxLayout()
-
-        # Log directory
-        logdir_layout = QHBoxLayout()
-        logdir_layout.addWidget(QLabel("Log Directory:"))
+        self._enc_checkbox = QCheckBox("🔒 AES Encryption")
+        self._analytics_checkbox = QCheckBox("📊 Biometrics Analysis")
+        self._analytics_checkbox.setChecked(True)
+        self._window_checkbox = QCheckBox("🪟 Window Tracking")
+        self._special_checkbox = QCheckBox("⌨️ Special Keys")
         self._log_dir_input = QLineEdit()
         self._log_dir_input.setReadOnly(True)
-        logdir_layout.addWidget(self._log_dir_input)
-        settings_layout.addLayout(logdir_layout)
 
-        # Encryption
-        enc_layout = QHBoxLayout()
-        self._enc_checkbox = QCheckBox("Enable Encryption (AES-128)")
-        enc_layout.addWidget(self._enc_checkbox)
-        enc_layout.addStretch()
-        settings_layout.addLayout(enc_layout)
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(24)
+        main_layout.setContentsMargins(32, 32, 32, 32)
 
-        # Analytics
-        analytics_layout = QHBoxLayout()
-        self._analytics_checkbox = QCheckBox("Enable Biometrics Analysis")
-        self._analytics_checkbox.setChecked(True)
-        analytics_layout.addWidget(self._analytics_checkbox)
-        analytics_layout.addStretch()
-        settings_layout.addLayout(analytics_layout)
+        # Header
+        header = QLabel("📊 Live Analytics Dashboard")
+        header.setProperty("role", "title")
+        main_layout.addWidget(header)
 
-        # Window tracking
-        window_layout = QHBoxLayout()
-        self._window_checkbox = QCheckBox("Track Active Window")
-        window_layout.addWidget(self._window_checkbox)
-        window_layout.addStretch()
-        settings_layout.addLayout(window_layout)
+        # Metrics grid - dashboard cards
+        metrics_frame = QFrame()
+        metrics_frame.setProperty("role", "card")
+        metrics_layout = QGridLayout(metrics_frame)
+        metrics_layout.setSpacing(20)
 
-        # Special keys logging
-        special_layout = QHBoxLayout()
-        self._special_checkbox = QCheckBox("Log Special Keys (Ctrl, Alt, etc.)")
-        special_layout.addWidget(self._special_checkbox)
-        special_layout.addStretch()
-        settings_layout.addLayout(special_layout)
+        # Define metrics with icons and colors
+        self._metric_cards = {}
+        metrics_config = [
+            (ICONS.get('time', '⏱️'), "00:00", "Elapsed", "#00d4aa"),
+            (ICONS.get('key', '⌨️'), "0", "Keystrokes", "#2ed573"),
+            ("⚡", "0.0", "WPM", "#ffb300"),
+            ("⏱️", "0ms", "Avg Dwell", "#ff6b6b"),
+            ("✈️", "0ms", "Avg Flight", "#747d8c"),
+            ("🎵", "0.00", "Rhythm", "#00d4aa"),
+            ("🔑", "N/A", "Top Key", "#2ed573"),
+        ]
 
-        settings_group.setLayout(settings_layout)
-        layout.addWidget(settings_group)
+        row, col = 0, 0
+        for icon, value, subtitle, color in metrics_config:
+            card = MetricCard(icon, value, subtitle, color)
+            self._metric_cards[subtitle.lower().replace(' ', '_')] = card
+            metrics_layout.addWidget(card, row, col)
+            col += 1
+            if col == 3:
+                col = 0
+                row += 1
 
-        # Action buttons
+        main_layout.addWidget(metrics_frame)
+
+        # Settings card (modern replacement for groupboxes)
+        settings_frame = QFrame()
+        settings_frame.setProperty("role", "card")
+        settings_layout = QVBoxLayout(settings_frame)
+        settings_layout.setSpacing(16)
+
+        settings_title = QLabel("⚙️ Capture Preferences")
+        settings_title.setProperty("role", "title")
+        settings_layout.addWidget(settings_title)
+
+        # Modern toggles
+        toggles = [
+            ("🔒 AES Encryption", self._enc_checkbox if hasattr(self, '_enc_checkbox') else None),
+            ("📊 Biometrics", self._analytics_checkbox if hasattr(self, '_analytics_checkbox') else None),
+            ("🪟 Window Tracking", self._window_checkbox if hasattr(self, '_window_checkbox') else None),
+            ("⌨️ Special Keys", self._special_checkbox if hasattr(self, '_special_checkbox') else None),
+        ]
+
+        for text, checkbox in toggles:
+            if checkbox:
+                toggle_layout = QHBoxLayout()
+                toggle_layout.addWidget(checkbox)
+                toggle_layout.addStretch()
+                settings_layout.addLayout(toggle_layout)
+
+        main_layout.addWidget(settings_frame)
+
+        # Action buttons (styled)
         action_layout = QHBoxLayout()
-        btn_save = QPushButton("Save Settings")
+        action_layout.addStretch()
+        btn_save = CustomButton("💾 Save Preferences", role="secondary")
         btn_save.clicked.connect(self._save_settings)
         action_layout.addWidget(btn_save)
 
-        btn_reset = QPushButton("Reset to Defaults")
+        btn_reset = CustomButton("🔄 Reset", role="secondary")
         btn_reset.clicked.connect(self._reset_defaults)
         action_layout.addWidget(btn_reset)
 
-        action_layout.addStretch()
-        layout.addLayout(action_layout)
+        main_layout.addLayout(action_layout)
 
-        layout.addStretch()
+        main_layout.addStretch()
 
     def _save_settings(self) -> None:
         """Save the current settings."""
@@ -151,31 +142,20 @@ class StatsPanel(QWidget):
         QMessageBox.information(self, "Reset", "Settings reset to defaults.")
 
     def update_stats(self, stats: dict) -> None:
-        """Update statistics display with new data."""
-        for key, field in [
-            ("elapsed_time", "elapsed_time"),
-            ("keystrokes", "keystrokes"),
-            ("wpm", "wpm"),
-            ("dwell", "avg_dwell_ms"),
-            ("flight", "avg_flight_ms"),
-            ("rhythm", "rhythm_score"),
-            ("top_key", "top_key"),
-            ("status", "status"),
-        ]:
-            if key in self._stats:
-                value = stats.get(field, "N/A")
-                if key == "wpm":
-                    self._stats[key].setText(f"{value:.1f}")
-                elif key in ["dwell", "flight"]:
-                    self._stats[key].setText(f"{value:.1f} ms" if value != "N/A" else "N/A")
-                elif key == "rhythm":
-                    self._stats[key].setText(
-                        f"{value:.2f} / 1.0" if value != "N/A" else "N/A"
-                    )
-                elif key == "elapsed_time":
-                    self._stats[key].setText(f"{value:.1f}s" if value != "N/A" else "N/A")
-                else:
-                    self._stats[key].setText(str(value))
+        """Update metric cards with live data."""
+        # Elapsed time formatting
+        elapsed = stats.get('elapsed_time', 0)
+        minutes = int(elapsed // 60)
+        seconds = int(elapsed % 60)
+        self._metric_cards['elapsed'].setValue(f"{minutes:02d}:{seconds:02d}")
+
+        # Metric cards
+        self._metric_cards['keystrokes'].setValue(f"{int(stats.get('keystrokes', 0)):,}")
+        self._metric_cards['wpm'].setValue(f"{stats.get('wpm', 0):.1f}")
+        self._metric_cards['avg_dwell'].setValue(f"{stats.get('avg_dwell_ms', 0):.0f}ms")
+        self._metric_cards['avg_flight'].setValue(f"{stats.get('avg_flight_ms', 0):.0f}ms")
+        self._metric_cards['rhythm'].setValue(f"{stats.get('rhythm_score', 0):.2f}")
+        self._metric_cards['top_key'].setValue(stats.get('top_key', 'N/A') or 'N/A')
 
     def set_log_directory(self, log_dir: Optional[Path]) -> None:
         """Set the log directory display."""

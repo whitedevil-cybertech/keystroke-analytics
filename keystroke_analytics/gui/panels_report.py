@@ -12,13 +12,18 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QWidget,
     QLabel,
     QPushButton,
+    QProgressBar,
+    QFrame,
     QTextEdit,
-    QTabWidget,
     QMessageBox,
 )
+
+from .widgets import CustomButton, MetricCard, ICONS
+from .theme import Theme
 
 logger = logging.getLogger(__name__)
 
@@ -33,85 +38,96 @@ class ReportPanel(QWidget):
 
     def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setSpacing(24)
+        layout.setContentsMargins(32, 32, 32, 32)
 
-        # Title
-        title = QLabel("Typing Analytics Report")
-        title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        # Hero title
+        title = QLabel("📋 Session Analytics Report")
+        title.setProperty("role", "title")
         layout.addWidget(title)
 
-        # Create tab widget for different report views
-        tabs = QTabWidget()
+        # Hero metrics row
+        self._hero_frame = QFrame()
+        self._hero_frame.setProperty("role", "card")
+        hero_layout = QGridLayout(self._hero_frame)
+        hero_layout.setSpacing(20)
 
-        # Summary tab
-        summary_widget = self._create_summary_tab()
-        tabs.addTab(summary_widget, "Summary")
+        self._wpm_card = MetricCard("⚡", "0 WPM", "Words per Minute", "#00d4aa")
+        self._rhythm_card = MetricCard("🎵", "0.00", "Rhythm Score", "#2ed573")
+        self._keystrokes_card = MetricCard(ICONS.get('key', '⌨️'), "0", "Total Keystrokes", "#ffb300")
 
-        # Metrics tab
-        metrics_widget = self._create_metrics_tab()
-        tabs.addTab(metrics_widget, "Detailed Metrics")
+        hero_layout.addWidget(self._wpm_card, 0, 0)
+        hero_layout.addWidget(self._rhythm_card, 0, 1)
+        hero_layout.addWidget(self._keystrokes_card, 0, 2)
 
-        # Top keys tab
-        topkeys_widget = self._create_topkeys_tab()
-        tabs.addTab(topkeys_widget, "Key Frequency")
+        layout.addWidget(self._hero_frame)
 
-        layout.addWidget(tabs)
+        # Progress bars for key categories (modern replacement for ASCII)
+        progress_frame = QFrame()
+        progress_frame.setProperty("role", "card")
+        progress_layout = QVBoxLayout(progress_frame)
+        progress_layout.setSpacing(12)
+
+        progress_title = QLabel("Key Distribution")
+        progress_title.setProperty("role", "title")
+        progress_layout.addWidget(progress_title)
+
+        self._progress_bars = {}
+        categories = [
+            ("Alpha", 0, "#00d4aa"),
+            ("Numeric", 0, "#ffb300"),
+            ("Special", 0, "#ff6b6b"),
+            ("Whitespace", 0, "#747d8c"),
+        ]
+
+        for name, value, color in categories:
+            bar_layout = QHBoxLayout()
+            label = QLabel(f"{name}: 0")
+            label.setMinimumWidth(100)
+            bar = QProgressBar()
+            bar.setMaximum(100)
+            bar.setValue(0)
+            bar.setStyleSheet(f"QProgressBar::chunk {{ background-color: {color}; }}")
+            bar_layout.addWidget(label)
+            bar_layout.addWidget(bar, 1)
+            progress_layout.addLayout(bar_layout)
+            self._progress_bars[name.lower()] = (label, bar)
+
+        layout.addWidget(progress_frame)
+
+        # Summary text display
+        self._summary_text = QTextEdit()
+        self._summary_text.setReadOnly(True)
+        self._summary_text.setProperty("role", "text-display")
+        layout.addWidget(self._summary_text)
+
+        # Metrics text display
+        self._metrics_text = QTextEdit()
+        self._metrics_text.setReadOnly(True)
+        self._metrics_text.setProperty("role", "text-display")
+        layout.addWidget(self._metrics_text)
+
+        # Top keys text display
+        self._topkeys_text = QTextEdit()
+        self._topkeys_text.setReadOnly(True)
+        self._topkeys_text.setProperty("role", "text-display")
+        layout.addWidget(self._topkeys_text)
 
         # Action buttons
         action_layout = QHBoxLayout()
-
-        btn_refresh = QPushButton("Refresh")
-        btn_refresh.clicked.connect(self._refresh_report)
-        action_layout.addWidget(btn_refresh)
-
-        btn_export = QPushButton("Export Report")
-        btn_export.clicked.connect(self._export_report)
-        action_layout.addWidget(btn_export)
-
         action_layout.addStretch()
+        self._btn_refresh = CustomButton("🔄 Refresh", role="secondary")
+        self._btn_refresh.clicked.connect(self._refresh_report)
+        action_layout.addWidget(self._btn_refresh)
+
+        self._btn_export = CustomButton("📤 Export Report")
+        self._btn_export.clicked.connect(self._export_report)
+        action_layout.addWidget(self._btn_export)
         layout.addLayout(action_layout)
 
-    def _create_summary_tab(self) -> QWidget:
-        """Create summary statistics tab."""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
+        layout.addStretch()
 
-        self._summary_text = QTextEdit()
-        self._summary_text.setReadOnly(True)
-        self._summary_text.setStyleSheet(
-            "QTextEdit { font-family: 'Courier New', monospace; font-size: 10pt; background-color: #f5f5f5; }"
-        )
-        self._update_summary_text()
-        layout.addWidget(self._summary_text)
 
-        return widget
-
-    def _create_metrics_tab(self) -> QWidget:
-        """Create detailed metrics tab."""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-
-        self._metrics_text = QTextEdit()
-        self._metrics_text.setReadOnly(True)
-        self._metrics_text.setStyleSheet(
-            "QTextEdit { font-family: 'Courier New', monospace; font-size: 9pt; background-color: #f5f5f5; }"
-        )
-        layout.addWidget(self._metrics_text)
-
-        return widget
-
-    def _create_topkeys_tab(self) -> QWidget:
-        """Create top keys frequency tab."""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-
-        self._topkeys_text = QTextEdit()
-        self._topkeys_text.setReadOnly(True)
-        self._topkeys_text.setStyleSheet(
-            "QTextEdit { font-family: 'Courier New', monospace; font-size: 9pt; background-color: #f5f5f5; }"
-        )
-        layout.addWidget(self._topkeys_text)
-
-        return widget
 
     def _update_summary_text(self) -> None:
         """Update the summary tab with placeholder data."""

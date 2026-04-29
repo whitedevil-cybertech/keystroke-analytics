@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QTextCursor, QTextCharFormat, QColor, QFont
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
@@ -143,13 +144,29 @@ class LogsPanel(QWidget):
             if search_term:
                 lines = content.split("\n")
                 filtered_lines = [line for line in lines if search_term in line.lower()]
-                self._text_display.setText(
-                    f"[{len(filtered_lines)} matches found]\n\n" + "\n".join(filtered_lines)
-                )
+                display_text = f"[{len(filtered_lines)} matches found]\n\n" + "\n".join(filtered_lines)
+                self._text_display.setText(display_text)
+                self._highlight_matches(search_term)
             else:
                 self._text_display.setText(content)
         except Exception as e:
             logger.exception("Error filtering logs")
+
+    def _highlight_matches(self, search_term: str) -> None:
+        """Highlight all occurrences of search_term in the text display."""
+        if not search_term:
+            return
+
+        cursor = QTextCursor(self._text_display.document())
+        format = QTextCharFormat()
+        format.setBackground(QColor("#ffb300"))
+        format.setForeground(QColor("#000000"))
+
+        while not cursor.isNull():
+            cursor = self._text_display.document().find(search_term, cursor)
+            if not cursor.isNull():
+                cursor.mergeCharFormat(format)
+                cursor.movePosition(QTextCursor.Right)
 
     def _clear_search(self) -> None:
         self._search_input.clear()

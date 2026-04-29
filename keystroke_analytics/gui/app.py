@@ -11,6 +11,8 @@ from typing import Optional
 
 from PySide6.QtWidgets import QApplication
 
+from .theme import Theme
+
 from keystroke_analytics.gui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,9 @@ def run_gui(
     analytics_enabled: bool = True,
 ) -> None:
     app = QApplication([])
+
+    # Apply professional dark theme
+    app.setStyleSheet(Theme.stylesheet())
     app.setApplicationName("Keystroke Analytics")
     app.setOrganizationName("keystroke-analytics")
 
